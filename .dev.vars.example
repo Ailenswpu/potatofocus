@@ -6,3 +6,4 @@ DAILY_TARGET=16
 # Set a real secret locally in .dev.vars and in production with:
 # wrangler secret put LEADERBOARD_SECRET_SALT
 LEADERBOARD_SECRET_SALT=replace-with-local-random-secret
+
