@@ -14,8 +14,12 @@ type Theme = "cream" | "night" | "forest" | "mist";
 type Mode = "focus" | "short" | "long";
 type Track = { label: string; src: string };
 type GeoResponse = { country?: string | null };
+type SessionStartResponse = { sessionId?: string };
+type SessionCompleteResponse = { todayCount?: number; todayRank?: number };
 type AudioContextConstructor = new () => AudioContext;
 type AudioWindow = Window & { webkitAudioContext?: AudioContextConstructor };
+
+const DAILY_TARGET = 16;
 
 const DURATIONS: Record<Mode, number> = {
   focus: 25 * 60,
@@ -48,8 +52,8 @@ const TRACKS: Track[] = [
 ];
 
 const BRAND_LINKS = [
-  { label: "Contact", href: "mailto:hello@potato.studywithme.app", icon: "ti ti-mail" },
-  { label: "GitHub", href: "https://github.com/", icon: "ti ti-brand-github" },
+  { label: "Contact", href: "mailto:hello@potatofocus.app", icon: "ti ti-mail" },
+  { label: "GitHub", href: "https://github.com/Ailenswpu/potatofocus", icon: "ti ti-brand-github" },
   { label: "Twitter", href: "https://x.com/", icon: "ti ti-brand-x" },
 ];
 
@@ -74,6 +78,7 @@ export default function PotatoApp() {
   const [mode, setMode] = useState<Mode>("focus");
   const [remaining, setRemaining] = useState<number>(DURATIONS.focus);
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   const [todayDate, setTodayDate] = useState(todayUtc());
 
@@ -94,6 +99,9 @@ export default function PotatoApp() {
   const alarmContextRef = useRef<AudioContext | null>(null);
   const flagMenuRef = useRef<HTMLDivElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const boardRef = useRef<HTMLElement | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionRequestIdRef = useRef(0);
   const endAtRef = useRef<number | null>(null);
   const modeRef = useRef<Mode>(mode);
   modeRef.current = mode;
@@ -194,9 +202,10 @@ export default function PotatoApp() {
     if (countrySource !== "manual") {
       void fetch("/api/geo", { cache: "no-store" })
         .then((response) => (response.ok ? response.json() : null))
-        .then((data: GeoResponse | null) => {
-          if (!data?.country) return;
-          const geoCountry = normalizeCountry(data.country);
+        .then((data) => {
+          const geo = data as GeoResponse | null;
+          if (!geo?.country) return;
+          const geoCountry = normalizeCountry(geo.country);
           setCountry(geoCountry);
           stored.setItem("country", geoCountry);
           stored.setItem("countrySource", "ip");
@@ -251,7 +260,7 @@ export default function PotatoApp() {
   }, [country]);
 
   useEffect(() => {
-    if (!flagMenuOpen && !moreOpen) return;
+    if (!flagMenuOpen && !moreOpen && !boardOpen) return;
     const closeOnOutside = (event: Event) => {
       if (!(event.target instanceof Node)) return;
       if (flagMenuOpen && !flagMenuRef.current?.contains(event.target)) {
@@ -260,11 +269,16 @@ export default function PotatoApp() {
       if (moreOpen && !moreMenuRef.current?.contains(event.target)) {
         setMoreOpen(false);
       }
+      if (boardOpen && !boardRef.current?.contains(event.target)) {
+        setBoardOpen(false);
+        setFlagMenuOpen(false);
+      }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setFlagMenuOpen(false);
         setMoreOpen(false);
+        setBoardOpen(false);
       }
     };
     document.addEventListener("pointerdown", closeOnOutside, true);
@@ -275,7 +289,7 @@ export default function PotatoApp() {
       document.removeEventListener("focusin", closeOnOutside, true);
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [flagMenuOpen, moreOpen]);
+  }, [boardOpen, flagMenuOpen, moreOpen]);
 
   useEffect(() => {
     localStorage.setItem("todayCount", String(todayCount));
@@ -294,6 +308,34 @@ export default function PotatoApp() {
 
     playAudio(currentTrack.src);
   }, [currentTrack.src, muted, playAudio]);
+
+  const beginFocusSession = useCallback(async () => {
+    if (!clientId) return null;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch("/api/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          clientId,
+          country,
+          mode: "focus",
+          nickname,
+        }),
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as SessionStartResponse;
+      return data.sessionId || null;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, [clientId, country, nickname]);
 
   // Drift-resistant timer
   useEffect(() => {
@@ -319,66 +361,101 @@ export default function PotatoApp() {
   }, [running]);
 
   const handleComplete = useCallback(async () => {
+    const completedMode = modeRef.current;
+    const completedSessionId = sessionIdRef.current;
+    sessionIdRef.current = null;
     playAlarm();
 
-    if (modeRef.current !== "focus") {
+    if (completedMode !== "focus") {
       setMode("focus");
       setRemaining(DURATIONS.focus);
       return;
     }
-    const next = todayCount + 1;
-    setTodayCount(next);
     setMode("short");
     setRemaining(DURATIONS.short);
 
-    if (!clientId) return;
+    if (!clientId || !completedSessionId) return;
     try {
-      await fetch("/api/pomodoro/complete", {
+      const response = await fetch("/api/session/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, nickname, country }),
+        body: JSON.stringify({
+          clientId,
+          country,
+          nickname,
+          sessionId: completedSessionId,
+        }),
       });
+      if (!response.ok) return;
+      const data = (await response.json()) as SessionCompleteResponse;
+      if (typeof data.todayCount === "number") {
+        setTodayCount(Math.min(data.todayCount, DAILY_TARGET));
+      }
       void loadBoard();
     } catch {
       // silent
     }
-  }, [clientId, country, nickname, playAlarm, todayCount]);
+  }, [clientId, country, nickname, playAlarm]);
 
-  const toggleTimer = () => {
+  const toggleTimer = async () => {
+    if (!running && starting) return;
     if (running) {
       setRunning(false);
+      sessionIdRef.current = null;
       endAtRef.current = null;
       return;
     }
     unlockAlarm();
+
+    sessionIdRef.current = null;
+    if (mode === "focus") {
+      setStarting(true);
+      void beginFocusSession()
+        .then((sessionId) => {
+          sessionIdRef.current = sessionId;
+        })
+        .finally(() => setStarting(false));
+    }
+
     endAtRef.current = Date.now() + remaining * 1000;
     setRunning(true);
   };
 
   const resetTimer = () => {
     setRunning(false);
+    sessionIdRef.current = null;
     endAtRef.current = null;
     setRemaining(DURATIONS[mode]);
   };
 
   const switchMode = (m: Mode) => {
+    if (running || starting) return;
     setMode(m);
     setRunning(false);
+    sessionIdRef.current = null;
     endAtRef.current = null;
     setRemaining(DURATIONS[m]);
   };
 
   const loadBoard = useCallback(async () => {
     try {
-      const r = await fetch("/api/leaderboard/today", { cache: "no-store" });
+      const params = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
+      const r = await fetch(`/api/leaderboard/today${params}`, { cache: "no-store" });
       if (!r.ok) return;
-      const data = (await r.json()) as { online: number; rows: Row[] };
+      const data = (await r.json()) as {
+        me?: { count: number; rank: number };
+        online: number;
+        rows: Row[];
+      };
       setRows(data.rows);
       setOnline(data.online);
+      if (clientId && data.me) {
+        setTodayCount(Math.min(data.me.count, DAILY_TARGET));
+      }
     } catch {
       // silent
     }
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     void loadBoard();
@@ -445,16 +522,16 @@ export default function PotatoApp() {
     }
   };
 
-  const target = 16;
+  const target = DAILY_TARGET;
 
   return (
     <main className="site">
       <div className="bar">
         <div className="brand">
           <span className="brand-mark" aria-hidden>
-            <PotatoMark size={22} />
+            <PotatoMark size={34} />
           </span>
-          potato
+          potatofocus
         </div>
         <div className="bar-actions">
           <button
@@ -511,6 +588,8 @@ export default function PotatoApp() {
               key={m}
               onClick={() => switchMode(m)}
               className={`mode${mode === m ? " on" : ""}`}
+              disabled={running || starting}
+              type="button"
             >
               {m === "focus" ? "Focus" : m === "short" ? "Short break" : "Long break"}
             </button>
@@ -521,8 +600,8 @@ export default function PotatoApp() {
         <div className="phase">{PHASE_LABELS[mode]}</div>
 
         <div className="controls">
-          <button className="btn-primary" onClick={toggleTimer}>
-            {running ? "Pause" : "Start"}
+          <button className="btn-primary" onClick={toggleTimer} disabled={!running && starting}>
+            {running ? "Pause" : starting ? "Starting" : "Start"}
           </button>
           <button className="btn-ghost" onClick={resetTimer}>
             Reset
@@ -569,7 +648,7 @@ export default function PotatoApp() {
         </select>
       </div>
 
-      <aside className={`board${boardOpen ? " open" : ""}`}>
+      <aside ref={boardRef} className={`board${boardOpen ? " open" : ""}`}>
         <div className="board-head">
           <div>
             <h2>Global today</h2>

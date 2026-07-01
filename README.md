@@ -7,14 +7,16 @@ A minimal pomodoro timer with a global leaderboard. No sign-up, no login.
 - Next.js 14 (App Router) + TypeScript
 - Tailwind CSS with CSS-variable–driven themes
 - Geist Mono via `next/font/google`
-- In-memory leaderboard (swap to Vercel KV / D1 for production)
+- Cloudflare Workers via OpenNext
+- Cloudflare D1 leaderboard with server-issued focus sessions
 
 ## Run locally
 
 ```bash
-pnpm install      # or: npm install / yarn
-pnpm dev
-# open http://localhost:3000
+npm install
+npm run d1:migrate:local
+npm run dev -- -p 3001
+# open http://localhost:3001
 ```
 
 ## Project layout
@@ -27,15 +29,19 @@ app/
   api/
     geo/                    GET — Cloudflare/IP country detection
     leaderboard/today/     GET — current ranking
-    pomodoro/complete/     POST — increments the caller's count
+    session/start/          POST — creates a server-issued focus session
+    session/complete/       POST — completes a valid focus session
+    pomodoro/complete/     POST — compatibility wrapper around session complete
 components/
   PotatoApp.tsx            entire UI (client component)
 lib/
   flags.ts                 jsDelivr flag URLs + country detection
   nickname.ts              random nickname + clientId
-  leaderboard.ts           in-memory daily store (resets daily, UTC)
+  leaderboard.ts           local dev fallback daily store
+  server/leaderboard.ts    D1-backed leaderboard and anti-cheat checks
 docs/
   cloudflare-leaderboard-plan.md  production leaderboard + anti-cheat plan
+  cloudflare-deployment.md        D1 + Workers deployment steps
 ```
 
 ## Themes
@@ -53,31 +59,16 @@ Ambient music and soundscapes are bundled in `public/audio/` and wired to the
 bottom-right selector. Source and license details live in
 `public/audio/ATTRIBUTION.md`.
 
-## Swapping the leaderboard backend
+## Cloudflare deployment
 
-`lib/leaderboard.ts` is the seam. Replace the in-memory `Map` with calls to
-Vercel KV or Cloudflare D1 — the API routes stay the same.
+The production deployment uses `wrangler.jsonc`, `open-next.config.ts`, and the
+D1 migration in `migrations/0001_leaderboard.sql`. Full steps are in
+`docs/cloudflare-deployment.md`.
 
-For the Cloudflare Workers/Pages production shape, see
-`docs/cloudflare-leaderboard-plan.md`.
+The leaderboard anti-cheat flow is:
 
-Suggested schema:
-
-```sql
-CREATE TABLE pomodoro_today (
-  date TEXT NOT NULL,
-  client_id TEXT NOT NULL,
-  nickname TEXT NOT NULL,
-  country TEXT NOT NULL,
-  count INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (date, client_id)
-);
-CREATE INDEX idx_today_count ON pomodoro_today(date, count DESC);
-```
-
-## Known gaps for production
-
-- Anti-cheat: rate-limit `POST /api/pomodoro/complete` per `clientId`
-  (max ~3 per 60 s).
-- Persistent backend (see above).
-- Mobile breakpoint polish.
+1. Focus start creates `/api/session/start`.
+2. Focus completion calls `/api/session/complete`.
+3. The server rejects missing sessions, early completions, expired sessions,
+   replayed sessions, and counts above the daily target.
+4. D1 stores daily scores, client metadata, timer sessions, and rejected events.

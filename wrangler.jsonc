@@ -1,0 +1,46 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "potatofocus",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-07-01",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"vars": {
+		"DAILY_TARGET": "16",
+		"ENVIRONMENT": "production",
+		"NEXTJS_ENV": "production",
+		"SESSION_DURATION_SECONDS": "1500",
+		"SESSION_EXPIRES_SECONDS": "3600",
+		"SESSION_TOLERANCE_SECONDS": "30"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "potatofocus",
+			"database_id": "3763d394-26b4-4e90-8e41-41fd71b9d115",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "potatofocus",
+			"database_name": "potatofocus",
+			"database_id": "3763d394-26b4-4e90-8e41-41fd71b9d115",
+			"remote": true
+		}
+	],
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "potatofocus"
+		}
+	]
+}

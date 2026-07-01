@@ -1,0 +1,8 @@
+NEXTJS_ENV=development
+SESSION_DURATION_SECONDS=1500
+SESSION_TOLERANCE_SECONDS=30
+SESSION_EXPIRES_SECONDS=3600
+DAILY_TARGET=16
+# Set a real secret locally in .dev.vars and in production with:
+# wrangler secret put LEADERBOARD_SECRET_SALT
+LEADERBOARD_SECRET_SALT=replace-with-local-random-secret

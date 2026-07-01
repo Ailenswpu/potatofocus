@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { normalizeCountry } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 type CfRequest = Request & {
   cf?: {

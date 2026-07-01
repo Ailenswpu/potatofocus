@@ -1,0 +1,31 @@
+# potatofocus
+
+> potatofocus is a minimal no-login pomodoro timer for focused work and study. It combines a clean timer, ambient focus sounds, country-aware profiles, daily progress, and a global leaderboard.
+
+## Primary URL
+
+- [potatofocus app](https://potatofocus.app/)
+
+## What The Product Does
+
+- Runs focus, short break, and long break timers.
+- Tracks a daily focus target of 16 completed focus sessions.
+- Plays bundled ambient audio and a completion alarm.
+- Shows a global daily leaderboard without requiring account signup.
+- Uses country-aware profile flags for lightweight identity and leaderboard context.
+
+## Technical Notes
+
+- Built with Next.js, React, TypeScript, Cloudflare Workers, OpenNext, and Cloudflare D1.
+- The leaderboard uses server-issued focus sessions to reduce obvious client-side cheating.
+- The app is free to use and does not require login.
+
+## Useful Public Files
+
+- [Sitemap](https://potatofocus.app/sitemap.xml)
+- [Robots policy](https://potatofocus.app/robots.txt)
+
+## Contact
+
+- Email: hello@potatofocus.app
+- GitHub: https://github.com/Ailenswpu/potatofocus

@@ -1,0 +1,48 @@
+# potatofocus full context
+
+potatofocus is a small web application for focused work and study sessions. It is intentionally minimal: the first screen is the timer itself, not a marketing page. The product is designed for people who want a quiet pomodoro experience with optional ambient audio and lightweight social motivation through a daily leaderboard.
+
+## Product Summary
+
+- Name: potatofocus
+- Canonical URL: https://potatofocus.app/
+- Category: productivity, focus timer, pomodoro timer, study timer
+- Price: free
+- Account requirement: no signup or login required
+- Primary audience: students, builders, remote workers, and anyone using focus blocks
+
+## Core Features
+
+- Focus timer: 25-minute default focus sessions.
+- Break timers: short and long break modes.
+- Daily progress: a 16-session daily target represented visually.
+- Ambient audio: bundled local soundscapes such as Lo-fi cafe, rain, forest, white noise, fireplace, ambient piano, firmament, and resort breeze.
+- Alarm: completion alarm plays when focus or break timers finish.
+- Leaderboard: global daily leaderboard for completed focus sessions.
+- Country flag: country-aware profile flag based on Cloudflare/IP country data when available, with manual selection support.
+- Themes: cream, night, forest, and mist visual themes.
+
+## Leaderboard And Integrity
+
+The leaderboard is backed by Cloudflare D1 and server-issued focus sessions. A focus session starts by calling a server endpoint, and completion requires a valid session ID. The server rejects missing sessions, expired sessions, replayed sessions, sessions completed too early, and counts beyond the daily target. This does not claim perfect anti-cheat security, but it avoids the simplest client-only leaderboard manipulation.
+
+## Technology
+
+- Next.js App Router
+- React and TypeScript
+- Cloudflare Workers via OpenNext
+- Cloudflare D1 for leaderboard data
+- Cloudflare request metadata for country detection
+- Static bundled audio assets in `/audio/`
+
+## Public Routes
+
+- `/` — main app
+- `/robots.txt` — crawler policy
+- `/sitemap.xml` — sitemap
+- `/llms.txt` — concise AI-readable site summary
+- `/llms-full.txt` — extended AI-readable site summary
+
+## Positioning
+
+potatofocus is not a task management suite. It is a focused single-purpose timer for people who want to start quickly, stay quiet, and use optional ambient sound and daily social proof to keep momentum.

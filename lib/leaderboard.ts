@@ -57,6 +57,17 @@ export function bumpCount(
   return { count: next.count, rank };
 }
 
+export function clientToday(clientId: string): { count: number; rank: number } | undefined {
+  const store = getStore();
+  const entry = store.entries.get(clientId);
+  if (!entry) return undefined;
+  const sorted = [...store.entries.values()].sort((a, b) => b.count - a.count);
+  return {
+    count: entry.count,
+    rank: sorted.findIndex((e) => e.clientId === clientId) + 1,
+  };
+}
+
 export function leaderboardToday(limit = 20): { online: number; rows: Array<{ rank: number; nickname: string; country: string; count: number }>; } {
   const store = getStore();
   const sorted = [...store.entries.values()].sort((a, b) => b.count - a.count);
