@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="potato">
+  <circle cx="50" cy="58" r="30" fill="#b85a30"/>
+  <path d="M50 30 Q56 20 66 20" stroke="#b85a30" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M50 30 Q47 22 40 22" stroke="#b85a30" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>
